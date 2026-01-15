@@ -1,0 +1,372 @@
+:root {
+  --google-blue: #4285F4;
+  --google-red: #EA4335;
+  --google-yellow: #FBBC05;
+  --google-green: #34A853;
+  --pro-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+}
+
+body {
+  background-color: #f8f9fa;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  margin: 0;
+}
+
+/* The Animated Snake Border */
+.pro-login-container {
+  position: relative;
+  padding: 4px;
+  border-radius: 24px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.1);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  box-shadow: var(--pro-shadow);
+}
+
+.pro-login-container::before,
+.pro-login-container::after {
+  content: '';
+  position: absolute;
+  width: 150%;
+  height: 150%;
+  background-image: conic-gradient(
+    transparent, var(--google-blue), var(--google-green), 
+    var(--google-yellow), var(--google-red), transparent
+  );
+  animation: snake-rotate 4s linear infinite;
+}
+
+.pro-login-container::after { animation-delay: -2s; }
+
+@keyframes snake-rotate {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.pro-card-inner {
+  position: relative;
+  background: white;
+  border-radius: 20px;
+  z-index: 10;
+  width: 100%;
+}
+
+/* Fantastic Button */
+.btn-pro {
+  background: linear-gradient(45deg, var(--google-blue), var(--google-green));
+  border: none;
+  color: white;
+  border-radius: 12px;
+  font-weight: 800;
+  transition: all 0.3s ease;
+}
+
+.btn-pro:active { transform: scale(0.96); }
+
+/* Shake Error Animation */
+.error-pro {
+  background: rgba(234, 67, 53, 0.1);
+  border: 1px solid rgba(234, 67, 53, 0.2);
+  color: var(--google-red);
+  border-radius: 12px;
+  animation: error-shake 0.4s cubic-bezier(.36,.07,.19,.97) both;
+}
+
+@keyframes error-shake {
+  10%, 90% { transform: translate3d(-1px, 0, 0); }
+  30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+  40%, 60% { transform: translate3d(4px, 0, 0); }
+}
+/* Full Screen Glass Loader */
+.loader-wrapper {
+  background: #f8f9fa;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.loader-card-pro {
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  padding: 3rem;
+  border-radius: 30px;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.05);
+  text-align: center;
+  width: 90%;
+  max-width: 350px;
+}
+
+/* Multi-colored Shimmer Bar */
+.pro-bar-container {
+  width: 100%;
+  height: 6px;
+  background: #eee;
+  border-radius: 10px;
+  overflow: hidden;
+  position: relative;
+  margin-top: 20px;
+}
+
+.pro-bar-shimmer {
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(90deg, 
+    var(--google-blue), var(--google-green), 
+    var(--google-yellow), var(--google-red)
+  );
+  position: absolute;
+  border-radius: 10px;
+  animation: pro-shimmer 1.5s infinite ease-in-out;
+}
+
+@keyframes pro-shimmer {
+  0% { transform: translateX(-150%); }
+  100% { transform: translateX(250%); }
+}
+
+/* Pulsing Label */
+.loader-text-pro {
+  font-size: 0.75rem;
+  font-weight: 900;
+  color: #5f6368;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  animation: pulse-opacity 1.5s infinite;
+}
+
+@keyframes pulse-opacity {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+/* Make Admin Tables Scrollable and Pro on Mobile */
+.table-responsive {
+  border-radius: 20px;
+  overflow: hidden;
+  border: 1px solid #f1f3f4;
+}
+
+.table thead {
+  background-color: #f8f9fa;
+}
+
+.table th {
+  font-size: 0.75rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #5f6368;
+  padding: 15px !important;
+  border-bottom: 2px solid #eee !important;
+}
+
+.table td {
+  padding: 15px !important;
+  font-weight: 700;
+  vertical-align: middle;
+}
+
+/* Floating Export Button Style */
+.btn-export-pro {
+  background: white;
+  border: 2px solid #4285F4;
+  color: #4285F4;
+  font-weight: 800;
+  border-radius: 12px;
+  padding: 8px 20px;
+  transition: all 0.2s ease;
+}
+
+.btn-export-pro:active {
+  background: #4285F4;
+  color: white;
+  transform: scale(0.95);
+}
+/* Pro Admin Navbar */
+.nav-admin-pro {
+  background: rgba(255, 255, 255, 0.8) !important;
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  position: sticky;
+  top: 0;
+  z-index: 1050;
+}
+
+/* The Admin Snake Underline (Blue to Purple) */
+.nav-admin-pro::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 4px;
+  background: linear-gradient(90deg, #4285F4, #9C27B0, #4285F4);
+  background-size: 200% 100%;
+  animation: nav-snake-admin 3s linear infinite;
+}
+
+@keyframes nav-snake-admin {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+
+.admin-avatar-glow {
+  width: 42px;
+  height: 42px;
+  background: #1a1c1e;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  font-weight: 900;
+  font-size: 1.1rem;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.role-badge-pro {
+  font-size: 0.65rem;
+  font-weight: 900;
+  padding: 4px 10px;
+  border-radius: 6px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+/* Fantastic Table Styling */
+.report-card-pro {
+  background: white;
+  border-radius: 24px;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+}
+
+.table-pro thead th {
+  font-size: 0.7rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #5f6368;
+  border-bottom: 2px solid #f1f3f4;
+  padding: 1.2rem 1rem;
+}
+
+.table-pro tbody td {
+  padding: 1rem;
+  font-weight: 700;
+  color: #212529;
+  border-bottom: 1px solid #f8f9fa;
+}
+
+/* High Fine Alert Glow */
+.fine-text-pro {
+  font-weight: 900;
+  color: #EA4335;
+  font-size: 1.1rem;
+}
+
+.student-name-pro {
+  font-weight: 800;
+  color: #1a1c1e;
+  letter-spacing: -0.2px;
+}
+/* Holiday Pro Card */
+.holiday-pro-card {
+  background: white;
+  border-radius: 24px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+}
+
+/* Minimalist Date Input */
+.date-input-pro {
+  background-color: #f8f9fa !important;
+  border: 2px solid transparent !important;
+  border-radius: 16px !important;
+  font-weight: 700 !important;
+  color: #1a1c1e !important;
+  transition: all 0.3s ease !important;
+}
+
+.date-input-pro:focus {
+  background-color: white !important;
+  border-color: #FBBC05 !important; /* Google Yellow */
+  box-shadow: 0 4px 15px rgba(251, 188, 5, 0.15) !important;
+}
+
+/* Fantastic Mark Button */
+.btn-mark-pro {
+  background: #FBBC05;
+  color: #000;
+  border: none;
+  border-radius: 14px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-mark-pro:active {
+  transform: scale(0.92);
+  background: #f1b000;
+}
+/* History Feed Row */
+.history-row-pro {
+  border-left: 4px solid transparent;
+  transition: all 0.2s ease;
+  border-bottom: 1px solid #f1f3f4;
+}
+
+.history-row-pro:hover {
+  background-color: #f8f9fa;
+  border-left-color: #4285F4;
+}
+
+.student-initial-avatar {
+  width: 38px;
+  height: 38px;
+  background: #f1f3f4;
+  color: #5f6368;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  font-weight: 800;
+  font-size: 0.9rem;
+}
+
+.topic-pill {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #5f6368;
+  background: #f1f3f4;
+  padding: 2px 10px;
+  border-radius: 6px;
+  display: inline-block;
+}
+
+/* Ensure the table cell doesn't squeeze the fine */
+.fine-text-pro {
+  font-weight: 900;
+  color: #EA4335;
+  font-size: 1.1rem;
+  letter-spacing: -0.5px;
+  /* Add this to prevent cutting */
+  display: inline-block;
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* Hide the scrollbar but keep it functional for a "Pro" look */
+.table-responsive::-webkit-scrollbar {
+  display: none;
+}
+.table-responsive {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
