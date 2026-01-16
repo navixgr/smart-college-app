@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const mongoose = require('mongoose'); // ✅ ADDED: Required for ObjectId casting
 
 const protect = require('../middleware/authMiddleware');
 
@@ -76,10 +77,15 @@ router.get('/dashboard', protect, async (req, res) => {
     }));
 
     /* =========================
-       4. FINE SUMMARY
+       4. FINE SUMMARY (UPDATED)
     ========================= */
+    // ✅ FIX: Manually cast string studentId to ObjectId for aggregation
     const fineAgg = await Fine.aggregate([
-      { $match: { studentId } },
+      { 
+        $match: { 
+          studentId: new mongoose.Types.ObjectId(studentId) 
+        } 
+      },
       {
         $group: {
           _id: null,
@@ -122,7 +128,7 @@ router.get('/dashboard', protect, async (req, res) => {
     }
 
     /* =========================
-       6. RESPONSE (FIXED)
+       6. RESPONSE
     ========================= */
     return res.json({
       success: true,
@@ -130,12 +136,9 @@ router.get('/dashboard', protect, async (req, res) => {
         id: student._id,
         name: student.name,
         className: student.classId.name,
-
-        // ✅ ONLY SELECTED STUDENTS GET COUNTER
         counter: student.isSelectedInCurrentCycle
           ? student.currentCounter
           : null,
-
         missedDays,
         totalFine
       },
