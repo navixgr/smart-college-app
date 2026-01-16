@@ -42,7 +42,7 @@ router.get('/profile', protect, async (req, res) => {
         name: admin.name,
         role: admin.role,
         classId: admin.classId ? admin.classId._id : null,
-        className: admin.classId ? admin.classId.name : 'ALL'
+        className: admin.classId ? admin.classId.name : 'ALL Departments'
       }
     });
 

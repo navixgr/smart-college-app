@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const mongoose = require('mongoose'); // Add at top
 
 const Holiday = require('../models/Holiday');
 const protect = require('../middleware/authMiddleware');
@@ -14,15 +15,12 @@ router.get('/', protect, async (req, res) => {
       return res.status(403).json({ success: false, message: 'Access denied' });
     }
 
-    const query =
-      req.user.role === 'SUPER'
-        ? {}
-        : {
-            $or: [
-              { classId: null },
-              { classId: req.user.classId }
-            ]
-          };
+const query = req.user.role === 'SUPER' ? {} : {
+  $or: [
+    { classId: null },
+    { classId: new mongoose.Types.ObjectId(req.user.classId) } // Fix here
+  ]
+};
 
     const holidays = await Holiday.find(query).sort({ date: 1 });
 

@@ -98,13 +98,20 @@ router.get('/dashboard', protect, async (req, res) => {
     const missedDays = fineAgg[0]?.missedDays || 0;
     const totalFine = fineAgg[0]?.totalFine || 0;
 
-    /* =========================
-       5. BOOKING STATUS
-    ========================= */
-    const currentTime = now.getHours() * 60 + now.getMinutes();
+/* =========================
+   5. BOOKING STATUS (FIXED FOR IST)
+========================= */
+// Create a Date object forced to Indian Time
+const indiaTime = new Date().toLocaleString("en-US", {timeZone: "Asia/Kolkata"});
+const nowIST = new Date(indiaTime);
 
-    const start = 12 * 60 + 45;
-    const end = 13 * 60 + 30;
+// Calculate minutes based on India time
+const currentTime = nowIST.getHours() * 60 + nowIST.getMinutes();
+
+const start = 12 * 60 + 45; // 12:45 PM
+const end = 13 * 60 + 30;   // 1:30 PM
+
+// ... rest of your logic using currentTime
 
     let bookingStatus = {
       canBook: true,

@@ -63,12 +63,17 @@ router.post('/book', protect, async (req, res) => {
        4. TIME-LOCK CHECK
        (12:45 PM – 1:30 PM)
     ========================= */
-    const currentTime =
-      now.getHours() * 60 + now.getMinutes();
+// Create a Date object forced to Indian Time
+const indiaTime = new Date().toLocaleString("en-US", {timeZone: "Asia/Kolkata"});
+const nowIST = new Date(indiaTime);
 
-    const start = 12 * 60 + 45;
-    const end = 13 * 60 + 30;
+// Calculate minutes based on India time
+const currentTime = nowIST.getHours() * 60 + nowIST.getMinutes();
 
+const start = 12 * 60 + 45; // 12:45 PM
+const end = 13 * 60 + 30;   // 1:30 PM
+
+// ... rest of your logic using currentTime
     if (currentTime < start || currentTime > end) {
       return res.status(403).json({
         success: false,
