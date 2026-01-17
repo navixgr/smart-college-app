@@ -4,7 +4,7 @@ const Fine = require('../models/Fine');
 const { isSunday, isHoliday } = require('./dateService');
 
 function getTodayStr() {
-  return new Date().toISOString().split('T')[0];
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
 }
 
 async function generateDailyFineForClass(classId) {
@@ -17,10 +17,13 @@ async function generateDailyFineForClass(classId) {
   // 2️⃣ Skip Holiday
   if (await isHoliday(todayStr, classId)) return;
 
-  // 3️⃣ Get ALL students of class
-  const students = await Student.find({ classId }).select('_id');
+  // 3️⃣ Get ONLY students who are ELIGIBLE to book (not yet selected)
+  const eligibleStudents = await Student.find({ 
+    classId, 
+    isSelectedInCurrentCycle: false // ✅ Added this filter
+  }).select('_id');
 
-  if (!students.length) return;
+  if (!eligibleStudents.length) return;
 
   // 4️⃣ Get today's bookings
   const bookedIds = await Booking.find({
@@ -30,8 +33,8 @@ async function generateDailyFineForClass(classId) {
 
   const bookedSet = new Set(bookedIds.map(id => id.toString()));
 
-  // 5️⃣ Fine students who did NOT book today
-  for (const student of students) {
+  // 5️⃣ Fine ONLY eligible students who did NOT book today
+  for (const student of eligibleStudents) {
     if (!bookedSet.has(student._id.toString())) {
       try {
         await Fine.create({
@@ -42,7 +45,7 @@ async function generateDailyFineForClass(classId) {
           reason: 'Not booked'
         });
       } catch (err) {
-        // Duplicate fine (same student, same day) — ignore
+        // Duplicate fine — ignore
       }
     }
   }
