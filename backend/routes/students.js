@@ -128,4 +128,38 @@ router.post(
   }
 );
 
+/*
+PATCH /api/students/status/:studentId
+Toggle Long Absent status
+*/
+router.patch(
+  '/status/:studentId',
+  protect,
+  adminOnly(['CC', 'SUPER']),
+  async (req, res) => {
+    try {
+      const { studentId } = req.params;
+      const { isLongAbsent } = req.body;
+
+      const student = await Student.findById(studentId);
+      if (!student) {
+        return res.status(404).json({ success: false, message: 'Student not found' });
+      }
+
+      // CC can only modify their own students
+      if (req.user.role === 'CC' && student.classId.toString() !== req.user.classId) {
+        return res.status(403).json({ success: false, message: 'Access denied' });
+      }
+
+      student.isLongAbsent = isLongAbsent;
+      await student.save();
+
+      return res.json({ success: true, message: 'Status updated' });
+    } catch (err) {
+      console.error('Update status error:', err);
+      return res.status(500).json({ success: false, message: 'Server error' });
+    }
+  }
+);
+
 module.exports = router;
