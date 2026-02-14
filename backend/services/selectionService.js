@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Booking = require('../models/Booking');
 const Student = require('../models/Student');
 const Cycle = require('../models/Cycle');
@@ -125,27 +126,32 @@ async function runDailySelectionForClass(classId) {
    INITIALIZE PIPELINE (ONE-TIME)
 ========================= */
 async function initializePipelineForClass(classId) {
-  let cycle = await Cycle.findOne({ classId, status: 'active' });
+  // Use mongoose.Types.ObjectId to ensure the ID matches correctly
+  const targetClassId = new mongoose.Types.ObjectId(classId);
+
+  let cycle = await Cycle.findOne({ classId: targetClassId, status: 'active' });
   
   if (!cycle) {
     cycle = await Cycle.create({
-      classId,
+      classId: targetClassId,
       startDate: new Date(),
       selectedStudentIds: []
     });
   }
 
-  // Only initialize if the pipeline is empty
   if (!cycle.primaryId || !cycle.backup1Id || !cycle.backup2Id) {
     const eligible = await Student.find({
-      classId,
+      classId: targetClassId,
       isSelectedInCurrentCycle: false,
-      isLongAbsent: false
+      // This query finds students where the field is false OR doesn't exist yet
+      $or: [
+        { isLongAbsent: false },
+        { isLongAbsent: { $exists: false } }
+      ]
     });
 
-    if (eligible.length < 3) return { status: 'ERROR', message: 'Not enough students left' };
+    if (eligible.length < 3) return { status: 'ERROR', message: `Only ${eligible.length} students found. Need 3.` };
 
-    // Randomly pick 3 distinct students
     const shuffled = eligible.sort(() => 0.5 - Math.random());
     
     cycle.primaryId = shuffled[0]._id;
