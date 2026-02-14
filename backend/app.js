@@ -4,6 +4,7 @@ const dotenv = require('dotenv');
 
 const connectDB = require('./config/db');
 const startDailySelectionCron = require('./cron/dailySelectionCron');
+const { generateDailyFineForClass } = require('./services/fineService');
 
 dotenv.config();
 
@@ -77,4 +78,16 @@ connectDB()
 app.get('/api/test-fine/:classId', async (req, res) => {
   await generateDailyFineForClass(req.params.classId);
   res.send('Fine generated');
+});
+
+// Add this near your other routes in app.js
+const { initializePipelineForClass } = require('./services/selectionService');
+
+app.get('/api/admin/init-pipeline/:classId', async (req, res) => {
+  try {
+    const result = await initializePipelineForClass(req.params.classId);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });

@@ -5,7 +5,12 @@ const cycleSchema = new mongoose.Schema({
   startDate: { type: Date, required: true },
   endDate: { type: Date, default: null },
   selectedStudentIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Student' }],
-  status: { type: String, enum: ['active', 'completed'], default: 'active' }
+  status: { type: String, enum: ['active', 'completed'], default: 'active' },
+  
+  // New Pipeline Fields
+  primaryId: { type: mongoose.Schema.Types.ObjectId, ref: 'Student', default: null },
+  backup1Id: { type: mongoose.Schema.Types.ObjectId, ref: 'Student', default: null },
+  backup2Id: { type: mongoose.Schema.Types.ObjectId, ref: 'Student', default: null }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Cycle', cycleSchema);

@@ -15,58 +15,18 @@ function pickRandom(arr) {
 }
 
 /* =========================
-   UPDATE COUNTERS (FIXED)
-========================= */
-async function updateCountersForClass(classId, cycle) {
-  if (!cycle) return;
-
-  const students = await Student.find({ classId });
-  const selectedCount = cycle.selectedStudentIds.length;
-  const totalStudents = students.length;
-
-  const remaining = totalStudents - selectedCount;
-
-  const bulkOps = students.map(student => ({
-    updateOne: {
-      filter: { _id: student._id },
-      update: {
-        currentCounter: student.isSelectedInCurrentCycle
-          ? remaining
-          : 0
-      }
-    }
-  }));
-
-  if (bulkOps.length > 0) {
-    await Student.bulkWrite(bulkOps);
-  }
-}
-
-/* =========================
-   CORE SELECTION ENGINE
+   CORE PIPELINE ENGINE
 ========================= */
 async function runDailySelectionForClass(classId) {
   const todayStr = getTodayStr();
   const todayDate = new Date();
 
-  /* 0️⃣ Sunday / Holiday check */
+  // 1. Sunday / Holiday check
   if (isSunday(todayDate)) return { status: 'SUNDAY_SKIP' };
   if (await isHoliday(todayStr, classId)) return { status: 'HOLIDAY_SKIP' };
 
-  /* 1️⃣ Prevent duplicate selection */
-  const alreadySelected = await Booking.findOne({
-    classId,
-    date: todayStr,
-    isWinner: true
-  });
-
-  if (alreadySelected) {
-    return { status: 'ALREADY_SELECTED' };
-  }
-
-  /* 2️⃣ Get or create active cycle */
+  // 2. Get active cycle (or create if missing)
   let cycle = await Cycle.findOne({ classId, status: 'active' });
-
   if (!cycle) {
     cycle = await Cycle.create({
       classId,
@@ -75,69 +35,134 @@ async function runDailySelectionForClass(classId) {
     });
   }
 
-  /* 3️⃣ Get today's bookings */
-  const bookings = await Booking.find({
-    classId,
-    date: todayStr
-  }).populate('studentId');
-
-  /* 4️⃣ Eligible students */
-  const eligibleStudents = bookings
-    .map(b => b.studentId)
-    .filter(s => s && !s.isSelectedInCurrentCycle);
-
-  if (eligibleStudents.length === 0) {
-    return { status: 'NO_ELIGIBLE_STUDENTS' };
+  /* =========================
+     3. ROTATE THE PIPELINE
+  ========================= */
+  // The current Primary is now "Finished"
+  if (cycle.primaryId) {
+    await Student.findByIdAndUpdate(cycle.primaryId, { 
+      isSelectedInCurrentCycle: true,
+      lastSelectedDate: new Date()
+    });
+    cycle.selectedStudentIds.push(cycle.primaryId);
   }
 
-  /* 5️⃣ Pick winner */
-  const winner = pickRandom(eligibleStudents);
+  // Slide the queue: Backup1 becomes Primary, Backup2 becomes Backup1
+  cycle.primaryId = cycle.backup1Id;
+  cycle.backup1Id = cycle.backup2Id;
 
-  /* 6️⃣ Update winner */
-  await Student.findByIdAndUpdate(winner._id, {
-    isSelectedInCurrentCycle: true,
-    lastSelectedDate: new Date()
-  });
+  /* =========================
+     4. SELECT NEW BACKUP 2
+  ========================= */
+  // A. Check today's bookings first
+  const bookings = await Booking.find({ classId, date: todayStr }).populate('studentId');
+  
+  let eligibleBookers = bookings
+    .map(b => b.studentId)
+    .filter(s => s && 
+                 !s.isSelectedInCurrentCycle && 
+                 s._id.toString() !== cycle.primaryId?.toString() &&
+                 s._id.toString() !== cycle.backup1Id?.toString()
+    );
 
-  /* 7️⃣ Mark booking as winner */
-  await Booking.findOneAndUpdate(
-    { studentId: winner._id, date: todayStr },
-    { isWinner: true }
-  );
+  let selectedBackup2 = null;
 
-  /* 8️⃣ Update cycle */
-  cycle.selectedStudentIds.push(winner._id);
+  if (eligibleBookers.length > 0) {
+    // Pick from those who booked
+    selectedBackup2 = pickRandom(eligibleBookers);
+  } else {
+    // B. FORCED SELECTION: No one booked, pick from remaining students
+    const nonBookers = await Student.find({
+      classId,
+      isSelectedInCurrentCycle: false,
+      isLongAbsent: false,
+      _id: { $nin: [cycle.primaryId, cycle.backup1Id] }
+    });
+
+    if (nonBookers.length > 0) {
+      selectedBackup2 = pickRandom(nonBookers);
+      // Mark as forced in the database
+      await Student.findByIdAndUpdate(selectedBackup2._id, { isManualSelection: true });
+    }
+  }
+
+  // 5. Assign the new Backup 2 and Save Cycle
+  cycle.backup2Id = selectedBackup2 ? selectedBackup2._id : null;
   await cycle.save();
 
-  /* 9️⃣ Update counters (FIXED) */
-  await updateCountersForClass(classId, cycle);
-
-  /* 🔟 Check cycle completion */
+  /* =========================
+     6. CYCLE COMPLETION CHECK
+  ========================= */
   const totalStudents = await Student.countDocuments({ classId });
-
-  if (cycle.selectedStudentIds.length === totalStudents) {
+  
+  if (cycle.selectedStudentIds.length >= totalStudents) {
     await Cycle.findByIdAndUpdate(cycle._id, {
       status: 'completed',
       endDate: new Date()
     });
 
+    // Reset all students for a fresh cycle
     await Student.updateMany(
       { classId },
       {
         isSelectedInCurrentCycle: false,
         lastSelectedDate: null,
-        currentCounter: 0
+        currentCounter: 0,
+        isManualSelection: false
       }
     );
   }
 
   return {
-    status: 'SELECTED',
-    studentId: winner._id,
-    name: winner.name
+    status: 'ROTATED',
+    primary: cycle.primaryId,
+    backup1: cycle.backup1Id,
+    backup2: cycle.backup2Id
   };
 }
 
-module.exports = {
-  runDailySelectionForClass
+/* =========================
+   INITIALIZE PIPELINE (ONE-TIME)
+========================= */
+async function initializePipelineForClass(classId) {
+  let cycle = await Cycle.findOne({ classId, status: 'active' });
+  
+  if (!cycle) {
+    cycle = await Cycle.create({
+      classId,
+      startDate: new Date(),
+      selectedStudentIds: []
+    });
+  }
+
+  // Only initialize if the pipeline is empty
+  if (!cycle.primaryId || !cycle.backup1Id || !cycle.backup2Id) {
+    const eligible = await Student.find({
+      classId,
+      isSelectedInCurrentCycle: false,
+      isLongAbsent: false
+    });
+
+    if (eligible.length < 3) return { status: 'ERROR', message: 'Not enough students left' };
+
+    // Randomly pick 3 distinct students
+    const shuffled = eligible.sort(() => 0.5 - Math.random());
+    
+    cycle.primaryId = shuffled[0]._id;
+    cycle.backup1Id = shuffled[1]._id;
+    cycle.backup2Id = shuffled[2]._id;
+
+    await cycle.save();
+  }
+
+  return {
+    status: 'INITIALIZED',
+    primary: cycle.primaryId,
+    backup1: cycle.backup1Id,
+    backup2: cycle.backup2Id
+  };
+}
+
+module.exports = { runDailySelectionForClass ,
+  initializePipelineForClass
 };

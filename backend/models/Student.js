@@ -8,7 +8,10 @@ const studentSchema = new mongoose.Schema({
   classId: { type: mongoose.Schema.Types.ObjectId, ref: 'Class', required: true },
   currentCounter: { type: Number, default: 0 },
   isSelectedInCurrentCycle: { type: Boolean, default: false },
-  lastSelectedDate: { type: Date, default: null }
+  lastSelectedDate: { type: Date, default: null },
+  // Add this to your existing studentSchema
+  isLongAbsent: { type: Boolean, default: false },
+  isManualSelection: { type: Boolean, default: false } // To track if they were forced
 }, { timestamps: true });
 
 module.exports = mongoose.model('Student', studentSchema);
