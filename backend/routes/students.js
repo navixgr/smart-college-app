@@ -162,4 +162,44 @@ router.patch(
   }
 );
 
+/*
+POST /api/students/subscribe
+Save the Push Subscription object to the student's profile
+*/
+router.post('/subscribe', protect, async (req, res) => {
+  try {
+    const subscription = req.body; // This comes from the browser
+    
+    // Find the student and save their subscription
+    await Student.findByIdAndUpdate(req.user.id, {
+      pushSubscription: subscription
+    });
+
+    res.status(200).json({ success: true, message: 'Subscribed to notifications' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Subscription failed' });
+  }
+});
+
+const { sendPushNotification } = require('../services/notificationService');
+
+router.post('/test-notification', protect, async (req, res) => {
+  try {
+    const student = await Student.findById(req.user.id);
+    if (!student.pushSubscription) {
+      return res.status(400).json({ message: "No subscription found. Please click 'Enable Alerts' on the frontend first!" });
+    }
+
+    await sendPushNotification(
+      student, 
+      "Test Successful! ✅", 
+      "Your PWA is now ready to receive COTD alerts."
+    );
+
+    res.json({ success: true, message: "Notification sent!" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

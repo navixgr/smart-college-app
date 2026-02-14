@@ -16,7 +16,7 @@ export default function AdminLogin() {
     }
     try {
       // Replace with your actual API URL
-      const res = await axios.post("http://localhost:5000/api/admin/auth/login", { username, password });
+      const res = await axios.post("https://smart-college-app.onrender.com/api/admin/auth/login", { username, password });
       localStorage.setItem("adminToken", res.data.token);
       navigate("/dashboard");
     } catch (err) {

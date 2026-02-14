@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
@@ -5,8 +6,10 @@ const dotenv = require('dotenv');
 const connectDB = require('./config/db');
 const startDailySelectionCron = require('./cron/dailySelectionCron');
 const { generateDailyFineForClass } = require('./services/fineService');
+require('./cron/morningGreetCron');
+require('./cron/bookingReminderCron');
+require('./cron/broadcastResultsCron');
 
-dotenv.config();
 
 const app = express();
 

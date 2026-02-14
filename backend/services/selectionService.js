@@ -3,6 +3,7 @@ const Booking = require('../models/Booking');
 const Student = require('../models/Student');
 const Cycle = require('../models/Cycle');
 const { isSunday, isHoliday } = require('./dateService');
+const { sendPushNotification } = require('./notificationService');
 
 /* =========================
    UTILS
@@ -26,7 +27,7 @@ async function runDailySelectionForClass(classId) {
   if (isSunday(todayDate)) return { status: 'SUNDAY_SKIP' };
   if (await isHoliday(todayStr, classId)) return { status: 'HOLIDAY_SKIP' };
 
-  // 2. Get active cycle (or create if missing)
+  // 2. Get active cycle
   let cycle = await Cycle.findOne({ classId, status: 'active' });
   if (!cycle) {
     cycle = await Cycle.create({
@@ -36,10 +37,7 @@ async function runDailySelectionForClass(classId) {
     });
   }
 
-  /* =========================
-     3. ROTATE THE PIPELINE
-  ========================= */
-  // The current Primary is now "Finished"
+  // 3. ROTATE THE PIPELINE
   if (cycle.primaryId) {
     await Student.findByIdAndUpdate(cycle.primaryId, { 
       isSelectedInCurrentCycle: true,
@@ -48,14 +46,10 @@ async function runDailySelectionForClass(classId) {
     cycle.selectedStudentIds.push(cycle.primaryId);
   }
 
-  // Slide the queue: Backup1 becomes Primary, Backup2 becomes Backup1
   cycle.primaryId = cycle.backup1Id;
   cycle.backup1Id = cycle.backup2Id;
 
-  /* =========================
-     4. SELECT NEW BACKUP 2
-  ========================= */
-  // A. Check today's bookings first
+  // 4. SELECT NEW BACKUP 2
   const bookings = await Booking.find({ classId, date: todayStr }).populate('studentId');
   
   let eligibleBookers = bookings
@@ -69,10 +63,8 @@ async function runDailySelectionForClass(classId) {
   let selectedBackup2 = null;
 
   if (eligibleBookers.length > 0) {
-    // Pick from those who booked
     selectedBackup2 = pickRandom(eligibleBookers);
   } else {
-    // B. FORCED SELECTION: No one booked, pick from remaining students
     const nonBookers = await Student.find({
       classId,
       isSelectedInCurrentCycle: false,
@@ -82,18 +74,30 @@ async function runDailySelectionForClass(classId) {
 
     if (nonBookers.length > 0) {
       selectedBackup2 = pickRandom(nonBookers);
-      // Mark as forced in the database
       await Student.findByIdAndUpdate(selectedBackup2._id, { isManualSelection: true });
     }
   }
 
-  // 5. Assign the new Backup 2 and Save Cycle
   cycle.backup2Id = selectedBackup2 ? selectedBackup2._id : null;
   await cycle.save();
 
-  /* =========================
-     6. CYCLE COMPLETION CHECK
-  ========================= */
+  /* ========================================================
+     NEW: NOTIFICATION LOGIC (Moved inside the function!)
+  ======================================================== */
+  if (selectedBackup2) {
+    // We need the full student object to check for the pushSubscription
+    const studentToNotify = await Student.findById(selectedBackup2._id);
+    
+    if (studentToNotify && studentToNotify.pushSubscription) {
+      await sendPushNotification(
+        studentToNotify, 
+        "You're in the Pipeline! 🎤", 
+        "You have been selected as Backup 2. Your turn is in 2 days!"
+      );
+    }
+  }
+
+  // 6. CYCLE COMPLETION CHECK
   const totalStudents = await Student.countDocuments({ classId });
   
   if (cycle.selectedStudentIds.length >= totalStudents) {
@@ -102,7 +106,6 @@ async function runDailySelectionForClass(classId) {
       endDate: new Date()
     });
 
-    // Reset all students for a fresh cycle
     await Student.updateMany(
       { classId },
       {

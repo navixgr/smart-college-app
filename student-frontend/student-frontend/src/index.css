@@ -387,3 +387,40 @@ body {
   transform: translateX(5px);
 }
 
+
+
+
+
+
+
+
+.pipeline-icon-circle {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+  border: 1px solid rgba(0,0,0,0.05);
+}
+
+.pipeline-line {
+  position: absolute;
+  left: 20px;
+  top: 40px;
+  width: 2px;
+  height: 40px;
+  background: #e9ecef;
+  z-index: 1;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.05); opacity: 0.8; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.animate-pulse {
+  animation: pulse 2s infinite ease-in-out;
+}

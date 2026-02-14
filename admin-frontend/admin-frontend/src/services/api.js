@@ -1,8 +1,7 @@
-// services/api.js
 import axios from "axios";
 
 const API = axios.create({
-  baseURL: "http://localhost:5000/api"
+  baseURL: "https://smart-college-app.onrender.com/api"
 });
 
 /*
@@ -11,6 +10,7 @@ Used for:
 - /admin/profile
 - /admin/reports/*
 - /holidays
+- /students/status/:studentId (New status toggle)
 */
 API.interceptors.request.use((req) => {
   const token = localStorage.getItem("adminToken");

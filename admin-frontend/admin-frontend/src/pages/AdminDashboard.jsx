@@ -6,35 +6,71 @@ import AdminHeader from "../components/admin/AdminHeader";
 import SelectedHistoryTable from "../components/admin/SelectedHistoryTable";
 import FineReportTable from "../components/admin/FineReportTable";
 import HolidayControl from "../components/admin/HolidayControl";
+import PipelineMonitor from "../components/admin/PipelineMonitor"; // New Component
+import StudentStatusTable from "../components/admin/StudentStatusTable"; // New Component
 
 export default function AdminDashboard() {
   const [user, setUser] = useState(null);
   const [history, setHistory] = useState([]);
   const [fineData, setFineData] = useState(null);
+  const [pipeline, setPipeline] = useState(null); // Pipeline State
+  const [students, setStudents] = useState([]); // Student List for Toggle
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  /* --- NEW HOLIDAY STATES --- */
-  // Initialize with today's date in YYYY-MM-DD format to fix the "--" month issue
   const [holidayDate, setHolidayDate] = useState(new Date().toISOString().split('T')[0]);
   const [holidayMessage, setHolidayMessage] = useState("");
 
-  useEffect(() => {
-    Promise.all([
-      API.get("/admin/profile"),
+const fetchData = async () => {
+  try {
+    setLoading(true);
+    const profileRes = await API.get("/admin/profile");
+    const adminUser = profileRes.data.user;
+    setUser(adminUser);
+
+    // ✅ FIX: Only fetch pipeline and students if classId exists (CC Role)
+    const requests = [
       API.get("/admin/reports/selected-history?json=true"),
       API.get("/admin/reports/fine-report?json=true")
-    ])
-      .then(([p, h, f]) => {
-        setUser(p.data.user);
-        setHistory(h.data.data || []);
-        setFineData(f.data.data || null);
-      })
-      .catch(() => setError("Session expired or server error"))
-      .finally(() => setLoading(false));
+    ];
+
+    if (adminUser.classId) {
+      requests.push(API.get(`/admin/reports/pipeline/${adminUser.classId}`));
+    }
+
+    const responses = await Promise.all(requests);
+    
+    setHistory(responses[0].data.data || []);
+    setFineData(responses[1].data.data || null);
+    
+    if (adminUser.classId) {
+      setPipeline(responses[2].data);
+      // Fetch student list for CC management
+      const s = await API.get(`/students/${adminUser.classId}`);
+      setStudents(s.data.students);
+    }
+  } catch (err) {
+    console.error("Dashboard Load Error:", err);
+    setError("Session expired or server error");
+  } finally {
+    setLoading(false);
+  }
+};
+
+  useEffect(() => {
+    fetchData();
   }, []);
 
-  /* --- HOLIDAY HANDLER --- */
+  const handleToggleAbsent = async (studentId, currentStatus) => {
+    try {
+      // Logic to toggle absent status in backend
+      await API.patch(`/students/status/${studentId}`, { isLongAbsent: !currentStatus });
+      fetchData(); // Refresh list
+    } catch (err) {
+      alert("Failed to update status");
+    }
+  };
+
   const handleAddHoliday = async () => {
     try {
       await API.post("/holidays", {
@@ -42,7 +78,6 @@ export default function AdminDashboard() {
         classId: user.role === "CC" ? user.classId : null
       });
       setHolidayMessage("Holiday added successfully!");
-      // Reset message after 3 seconds
       setTimeout(() => setHolidayMessage(""), 3000);
     } catch (err) {
       setHolidayMessage(err.response?.data?.error || "Failed to add holiday");
@@ -54,34 +89,8 @@ export default function AdminDashboard() {
     window.location.replace("/");
   };
 
-const exportFine = () => {
-  const token = localStorage.getItem("adminToken");
-  const url = `http://localhost:5000/api/admin/reports/fine-report?token=${token}`;
-  
-  // Create a hidden anchor element
-  const link = document.createElement("a");
-  link.href = url;
-  link.setAttribute("download", "Fine_Report.xlsx"); // Set filename
-  document.body.appendChild(link);
-  link.click(); // Trigger download
-  document.body.removeChild(link); // Clean up
-};
-
-const exportSelected = () => {
-  const token = localStorage.getItem("adminToken");
-  const url = `http://localhost:5000/api/admin/reports/selected-history?token=${token}`;
-  
-  const link = document.createElement("a");
-  link.href = url;
-  link.setAttribute("download", "Selection_History.xlsx");
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-};
-
-if (loading) return <Loader text="Synchronizing Admin Data..." />;
+  if (loading) return <Loader text="Synchronizing Admin Data..." />;
   if (error) return <div className="p-5 text-center text-danger fw-bold">{error}</div>;
-  if (!user) return <div className="p-5 text-center fw-bold">Unauthorized</div>;
 
   return (
     <div className="bg-light min-vh-100">
@@ -89,12 +98,20 @@ if (loading) return <Loader text="Synchronizing Admin Data..." />;
       
       <div className="container py-4">
         <div className="row g-4">
-          {/* Main Content: History */}
+          {/* Main Content */}
           <div className="col-lg-8">
-            <SelectedHistoryTable data={history} onExport={exportSelected} />
+            <div className="d-grid gap-4">
+              {user.role === "CC" && pipeline && (
+                <PipelineMonitor data={pipeline} />
+              )}
+              <SelectedHistoryTable data={history} onExport={() => {}} />
+              {user.role === "CC" && (
+                <StudentStatusTable students={students} onToggle={handleToggleAbsent} />
+              )}
+            </div>
           </div>
 
-          {/* Sidebar: Holiday Control */}
+          {/* Sidebar */}
           <div className="col-lg-4">
             <HolidayControl 
               user={user} 
@@ -104,18 +121,7 @@ if (loading) return <Loader text="Synchronizing Admin Data..." />;
               message={holidayMessage}
             />
             
-            <div className="card border-0 shadow-sm bg-primary text-white mt-4" style={{ borderRadius: '15px' }}>
-              <div className="card-body p-4 text-center">
-                <i className="bi bi-info-circle-fill fs-2 mb-2 d-block"></i>
-                <h6 className="fw-bold">Admin Tip</h6>
-                <small className="opacity-75">Fines are calculated automatically based on missed deadlines. Mark holidays to skip those dates.</small>
-              </div>
-            </div>
-          </div>
-
-          {/* Full Width Bottom: Fine Report */}
-          <div className="col-12">
-            <FineReportTable data={fineData} role={user.role} onExport={exportFine} />
+            <FineReportTable data={fineData} role={user.role} onExport={() => {}} />
           </div>
         </div>
       </div>

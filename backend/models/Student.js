@@ -11,7 +11,11 @@ const studentSchema = new mongoose.Schema({
   lastSelectedDate: { type: Date, default: null },
   // Add this to your existing studentSchema
   isLongAbsent: { type: Boolean, default: false },
-  isManualSelection: { type: Boolean, default: false } // To track if they were forced
+  isManualSelection: { type: Boolean, default: false },// To track if they were forced
+  pushSubscription: {
+    type: Object,
+    default: null
+  }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Student', studentSchema);
