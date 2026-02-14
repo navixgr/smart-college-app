@@ -9,6 +9,10 @@ const adminOnly = require('../middleware/adminMiddleware');
 const Booking = require('../models/Booking');
 const Fine = require('../models/Fine');
 
+const Cycle = require('../models/Cycle');
+const Student = require('../models/Student');
+
+
 /* =========================
    HELPER
 ========================= */
@@ -186,4 +190,73 @@ router.get(
   }
 );
 
+
+/*
+GET /api/admin/reports/pipeline/:classId
+Admin view of the live selection pipeline
+*/
+router.get('/pipeline/:classId', protect, adminOnly(['CC', 'SUPER']), async (req, res) => {
+  try {
+    const { classId } = req.params;
+    const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+
+    // 1. Fetch Cycle and populate student names
+    const activeCycle = await Cycle.findOne({ classId, status: 'active' })
+      .populate('primaryId', 'name')
+      .populate('backup1Id', 'name')
+      .populate('backup2Id', 'name');
+
+    if (!activeCycle) {
+      return res.status(404).json({ success: false, message: "No active cycle found" });
+    }
+
+    // 2. Fetch today's topics for the pipeline students
+    const pipelineIds = [
+      activeCycle.primaryId?._id,
+      activeCycle.backup1Id?._id,
+      activeCycle.backup2Id?._id
+    ].filter(id => id != null);
+
+    const pipelineBookings = await Booking.find({
+      classId,
+      date: todayStr,
+      studentId: { $in: pipelineIds }
+    });
+
+    const getTopic = (id) => {
+      if (!id) return "Assigning...";
+      const booking = pipelineBookings.find(b => b.studentId.toString() === id.toString());
+      return booking ? booking.topic : "Topic not entered yet";
+    };
+
+    // 3. Red Zone Logic
+    const remainingCount = await Student.countDocuments({ 
+      classId, 
+      isSelectedInCurrentCycle: false 
+    });
+
+    res.json({
+      success: true,
+      pipeline: {
+        primary: { 
+          name: activeCycle.primaryId?.name || "Assigning...", 
+          topic: getTopic(activeCycle.primaryId?._id) 
+        },
+        backup1: { 
+          name: activeCycle.backup1Id?.name || "Assigning...", 
+          topic: getTopic(activeCycle.backup1Id?._id) 
+        },
+        backup2: { 
+          name: activeCycle.backup2Id?.name || "Assigning...", 
+          topic: getTopic(activeCycle.backup2Id?._id) 
+        }
+      },
+      isRedZone: remainingCount <= 10,
+      remainingCount
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
 module.exports = router;
