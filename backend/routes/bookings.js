@@ -26,7 +26,7 @@ router.post('/book', protect, async (req, res) => {
     }
 
     const now = new Date();
-    const todayStr = now.toISOString().split('T')[0];
+    const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
 
     /* 2. SUNDAY & HOLIDAY CHECK */
     if (isSunday(now)) {

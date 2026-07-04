@@ -4,8 +4,8 @@ export default function HistoryList({ history }) {
   const [showAll, setShowAll] = useState(false);
 
   const limit = 3;
-  const hasMore = history.length > limit;
-  const displayedHistory = showAll ? history : history.slice(0, limit);
+  const hasMore = history && history.length > limit;
+  const displayedHistory = showAll ? history : (history || []).slice(0, limit);
 
   return (
     <div className="history-container shadow-sm border-0">
@@ -17,7 +17,7 @@ export default function HistoryList({ history }) {
       </div>
 
       <div className="p-3">
-        {history.length === 0 ? (
+        {!history || history.length === 0 ? (
           <div className="p-5 text-center">
             <i className="bi bi-calendar2-x text-muted fs-1 d-block mb-2"></i>
             <p className="text-muted small fw-medium">No history recorded yet</p>
@@ -30,7 +30,6 @@ export default function HistoryList({ history }) {
                 
                 <div className="d-flex flex-column">
                   <div className="mb-1">
-                    {/* Date changed to Blue via inline style */}
                     <span 
                       className="history-date-badge" 
                       style={{ color: '#0d6efd', backgroundColor: 'rgba(13, 110, 253, 0.1)', fontWeight: '800' }}
@@ -39,7 +38,6 @@ export default function HistoryList({ history }) {
                     </span>
                   </div>
                   
-                  {/* Name made more visible with extra bold weight and larger size */}
                   <div 
                     style={{ 
                       letterSpacing: '-0.3px', 
@@ -48,12 +46,12 @@ export default function HistoryList({ history }) {
                       color: '#1a1c1e' 
                     }}
                   >
-                    {h.studentName}
+                    {h.studentName || "Unknown Student"}
                   </div>
                   
                   <div className="text-muted small mt-1 italic">
                     <i className="bi bi-chat-left-quote me-1 opacity-30"></i>
-                    {h.topic}
+                    {h.topic || "No topic recorded"}
                   </div>
                 </div>
               </div>

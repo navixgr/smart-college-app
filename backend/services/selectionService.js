@@ -37,13 +37,33 @@ async function runDailySelectionForClass(classId) {
     });
   }
 
-  // 3. ROTATE THE PIPELINE
+  // 3. ROTATE THE PIPELINE & RECORD HISTORY
   if (cycle.primaryId) {
     await Student.findByIdAndUpdate(cycle.primaryId, { 
       isSelectedInCurrentCycle: true,
       lastSelectedDate: new Date()
     });
     cycle.selectedStudentIds.push(cycle.primaryId);
+
+    // 🔥 FIX: Find today's presentation booking for the Primary student and mark them as the Winner
+    const primaryBooking = await Booking.findOne({
+      studentId: cycle.primaryId,
+      date: todayStr
+    });
+
+    if (primaryBooking) {
+      primaryBooking.isWinner = true;
+      await primaryBooking.save();
+    } else {
+      // If they didn't book a topic (Forced Selection), create a history record anyway
+      await Booking.create({
+        studentId: cycle.primaryId,
+        classId,
+        topic: "Forced Selection (No topic entered)",
+        date: todayStr,
+        isWinner: true
+      });
+    }
   }
 
   cycle.primaryId = cycle.backup1Id;
@@ -82,12 +102,10 @@ async function runDailySelectionForClass(classId) {
   await cycle.save();
 
   /* ========================================================
-     NEW: NOTIFICATION LOGIC (Moved inside the function!)
+     NOTIFICATION LOGIC
   ======================================================== */
   if (selectedBackup2) {
-    // We need the full student object to check for the pushSubscription
     const studentToNotify = await Student.findById(selectedBackup2._id);
-    
     if (studentToNotify && studentToNotify.pushSubscription) {
       await sendPushNotification(
         studentToNotify, 
@@ -129,9 +147,7 @@ async function runDailySelectionForClass(classId) {
    INITIALIZE PIPELINE (ONE-TIME)
 ========================= */
 async function initializePipelineForClass(classId) {
-  // Use mongoose.Types.ObjectId to ensure the ID matches correctly
   const targetClassId = new mongoose.Types.ObjectId(classId);
-
   let cycle = await Cycle.findOne({ classId: targetClassId, status: 'active' });
   
   if (!cycle) {
@@ -146,7 +162,6 @@ async function initializePipelineForClass(classId) {
     const eligible = await Student.find({
       classId: targetClassId,
       isSelectedInCurrentCycle: false,
-      // This query finds students where the field is false OR doesn't exist yet
       $or: [
         { isLongAbsent: false },
         { isLongAbsent: { $exists: false } }
@@ -172,6 +187,7 @@ async function initializePipelineForClass(classId) {
   };
 }
 
-module.exports = { runDailySelectionForClass ,
+module.exports = { 
+  runDailySelectionForClass,
   initializePipelineForClass
 };

@@ -1,7 +1,6 @@
 const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
-
 const protect = require('../middleware/authMiddleware');
 
 const Student = require('../models/Student');
@@ -10,15 +9,8 @@ const Fine = require('../models/Fine');
 const Cycle = require('../models/Cycle'); 
 const { isSunday, isHoliday } = require('../services/dateService');
 
-/*
-GET /api/student/dashboard
-Student Dashboard (Enhanced with Pipeline & Red Zone)
-*/
 router.get('/dashboard', protect, async (req, res) => {
   try {
-    /* =========================
-       0. ROLE CHECK
-    ========================= */
     if (req.user.role !== 'STUDENT') {
       return res.status(403).json({ success: false, message: 'Access denied' });
     }
@@ -26,34 +18,24 @@ router.get('/dashboard', protect, async (req, res) => {
     const studentId = req.user.id;
     const classId = req.user.classId;
     const now = new Date();
-    // Use local date string to match booking format exactly
     const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
 
-    /* =========================
-       1. STUDENT PROFILE & PIPELINE
-    ========================= */
     const student = await Student.findById(studentId).populate('classId');
     if (!student) {
       return res.status(404).json({ success: false, message: 'Student not found' });
     }
 
-    // 🔥 FIX: Deep populate to ensure names are fetched from the Student collection
     const activeCycle = await Cycle.findOne({ classId, status: 'active' })
       .populate('primaryId', 'name')
       .populate('backup1Id', 'name')
       .populate('backup2Id', 'name');
 
-    // RED ZONE LOGIC: Check how many students are left
     const remainingCount = await Student.countDocuments({ 
       classId, 
       isSelectedInCurrentCycle: false 
     });
     const isRedZone = remainingCount <= 10;
 
-    /* =========================
-       2. FETCH TOPICS FOR PIPELINE
-    ========================= */
-    // Helper to find topics entered by the pipeline students for today
     const pipelineIds = [
       activeCycle?.primaryId?._id,
       activeCycle?.backup1Id?._id,
@@ -72,9 +54,6 @@ router.get('/dashboard', protect, async (req, res) => {
       return booking ? booking.topic : "Topic not entered yet";
     };
 
-    /* =========================
-       3. TODAY RESULT (KEEP EXISTING)
-    ========================= */
     const todayBooking = await Booking.findOne({
       classId,
       date: todayStr,
@@ -83,28 +62,27 @@ router.get('/dashboard', protect, async (req, res) => {
 
     const today = todayBooking
       ? {
-          studentName: todayBooking.studentId.name,
+          studentName: todayBooking.studentId?.name || "Unknown Student",
           topic: todayBooking.topic
         }
       : null;
 
     /* =========================
-       4. HISTORY (KEEP EXISTING)
+       4. HISTORY (FIXED REMOVED-STUDENT CRASHES)
     ========================= */
     const historyBookings = await Booking.find({ classId, isWinner: true })
       .populate('studentId', 'name')
       .sort({ date: -1 })
       .limit(30);
 
-    const history = historyBookings.map(b => ({
-      date: b.date,
-      studentName: b.studentId.name,
-      topic: b.topic
-    }));
+    const history = historyBookings
+      .filter(b => b.studentId != null) // ✅ Prevents rendering exceptions if a student profile is missing
+      .map(b => ({
+        date: b.date,
+        studentName: b.studentId.name,
+        topic: b.topic
+      }));
 
-    /* =========================
-       5. FINE SUMMARY
-    ========================= */
     const fineAgg = await Fine.aggregate([
       { $match: { studentId: new mongoose.Types.ObjectId(studentId) } },
       { $group: { _id: null, totalFine: { $sum: '$amount' }, missedDays: { $sum: 1 } } }
@@ -113,9 +91,6 @@ router.get('/dashboard', protect, async (req, res) => {
     const missedDays = fineAgg[0]?.missedDays || 0;
     const totalFine = fineAgg[0]?.totalFine || 0;
 
-    /* =========================
-       6. BOOKING STATUS (IST)
-    ========================= */
     const indiaTime = new Date().toLocaleString("en-US", {timeZone: "Asia/Kolkata"});
     const nowIST = new Date(indiaTime);
     const currentTime = nowIST.getHours() * 60 + nowIST.getMinutes();
@@ -131,15 +106,11 @@ router.get('/dashboard', protect, async (req, res) => {
     } else if (student.isSelectedInCurrentCycle) {
       bookingStatus = { canBook: false, reason: 'Already selected in this cycle' };
     } else if (currentTime < start || currentTime > end) {
-      // Bypass time check if in Red Zone
       if (!isRedZone) {
         bookingStatus = { canBook: false, reason: 'Booking time closed (12:45 – 1:30)' };
       }
     }
 
-    /* =========================
-       7. RESPONSE (MERGED OLD + NEW)
-    ========================= */
     return res.json({
       success: true,
       user: {
@@ -150,7 +121,6 @@ router.get('/dashboard', protect, async (req, res) => {
         missedDays,
         totalFine
       },
-      // New Pipeline Data
       pipeline: {
         primary: {
           name: activeCycle?.primaryId?.name || "Assigning...",
@@ -167,7 +137,6 @@ router.get('/dashboard', protect, async (req, res) => {
       },
       isRedZone, 
       remainingCount,
-      // Legacy Data
       today,
       history,
       bookingStatus
